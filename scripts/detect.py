@@ -48,6 +48,7 @@ def translate_regex(p: str) -> str:
     # expects \uHHHH / \U00HHHHHH. Both braced forms get translated.
     p = re.sub(r"\\[xu]\{([0-9A-Fa-f]+)\}", sub, p)
     p = p.replace(r"\p{Alphabetic}", r"[^\W\d_]")  # stdlib re lacks \p{}; alpha approximation
+    p = re.sub(r"(?<!\\)\\z", r"\\Z", p)           # Rust end-of-text \z -> Python \Z (no \z in re)
     return p
 
 
@@ -621,6 +622,8 @@ def demo() -> None:
     assert translate_regex(r"\x{1F600}") == r"\U0001f600"
     assert translate_regex(r"\u{fe0f}") == r"\ufe0f"          # the Rust \u{...} form too
     assert r"\p{Alphabetic}" not in translate_regex(r"\p{Alphabetic}")
+    assert translate_regex(r"continue\s*\z") == r"continue\s*\Z"   # Rust end-anchor
+    assert translate_regex(r"lit\\z") == r"lit\\z"                 # escaped \\z left alone
 
     m = load_manifests()
     assert "claude" in m and "codex" in m and "opencode" in m, "bundled manifests missing"
