@@ -1,0 +1,85 @@
+{
+ "agents": [
+  {
+   "id": "amp",
+   "path": "amp.toml"
+  },
+  {
+   "id": "agy",
+   "path": "antigravity.toml"
+  },
+  {
+   "id": "claude",
+   "path": "claude.toml"
+  },
+  {
+   "id": "cline",
+   "path": "cline.toml"
+  },
+  {
+   "id": "codex",
+   "path": "codex.toml"
+  },
+  {
+   "id": "cursor",
+   "path": "cursor.toml"
+  },
+  {
+   "id": "devin",
+   "path": "devin.toml"
+  },
+  {
+   "id": "droid",
+   "path": "droid.toml"
+  },
+  {
+   "id": "gemini",
+   "path": "gemini.toml"
+  },
+  {
+   "id": "grok",
+   "path": "grok.toml"
+  },
+  {
+   "id": "hermes",
+   "path": "hermes.toml"
+  },
+  {
+   "id": "kilo",
+   "path": "kilo.toml"
+  },
+  {
+   "id": "kimi",
+   "path": "kimi.toml"
+  },
+  {
+   "id": "kiro",
+   "path": "kiro.toml"
+  },
+  {
+   "id": "maki",
+   "path": "maki.toml"
+  },
+  {
+   "id": "opencode",
+   "path": "opencode.toml"
+  },
+  {
+   "id": "pi",
+   "path": "pi.toml"
+  },
+  {
+   "id": "qodercli",
+   "path": "qodercli.toml"
+  },
+  {
+   "id": "qwen",
+   "path": "qwen.toml"
+  },
+  {
+   "id": "copilot",
+   "path": "github-copilot.toml"
+  }
+ ],
+ "schema_version": 1
+}

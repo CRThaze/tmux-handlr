@@ -1,0 +1,30 @@
+{
+ "count": 20,
+ "ids": [
+  "agy",
+  "amp",
+  "claude",
+  "cline",
+  "codex",
+  "copilot",
+  "cursor",
+  "devin",
+  "droid",
+  "gemini",
+  "grok",
+  "hermes",
+  "kilo",
+  "kimi",
+  "kiro",
+  "maki",
+  "opencode",
+  "pi",
+  "qodercli",
+  "qwen"
+ ],
+ "ref": "ec05328a4413e38ebdcb84365938345e9cf47431",
+ "schema_version": 1,
+ "source": "herdrdev/herdr",
+ "synced_at": "2026-09-05T22:11:07Z",
+ "url": "https://raw.githubusercontent.com/herdrdev/herdr/ec05328a4413e38ebdcb84365938345e9cf47431/distribution/agent-detection/"
+}

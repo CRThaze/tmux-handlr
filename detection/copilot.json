@@ -1,0 +1,98 @@
+{
+ "aliases": [
+  "github-copilot",
+  "ghcs"
+ ],
+ "id": "copilot",
+ "min_engine_version": 1,
+ "rules": [
+  {
+   "all": [
+    {
+     "any": [
+      {
+       "contains": [
+        "esc to cancel"
+       ]
+      },
+      {
+       "contains": [
+        "esc cancel"
+       ]
+      }
+     ]
+    },
+    {
+     "any": [
+      {
+       "contains": [
+        "enter to select"
+       ]
+      },
+      {
+       "contains": [
+        "enter to confirm"
+       ]
+      },
+      {
+       "contains": [
+        "enter to submit"
+       ]
+      },
+      {
+       "contains": [
+        "enter accept"
+       ]
+      }
+     ]
+    }
+   ],
+   "id": "selection_blocker",
+   "priority": 300,
+   "region": "whole_recent",
+   "state": "blocked",
+   "visible_blocker": true
+  },
+  {
+   "id": "background_agents_working",
+   "line_regex": [
+    "^\\s*◎\\s+Waiting for background agents(?:\\s|·|$)"
+   ],
+   "priority": 110,
+   "region": "bottom_non_empty_lines(6)",
+   "state": "working",
+   "visible_working": true
+  },
+  {
+   "any": [
+    {
+     "contains": [
+      "esc to cancel"
+     ]
+    },
+    {
+     "contains": [
+      "esc cancel"
+     ]
+    },
+    {
+     "contains": [
+      "esc again to cancel"
+     ]
+    },
+    {
+     "contains": [
+      "esc interrupt"
+     ]
+    }
+   ],
+   "id": "working_cancel_hint",
+   "priority": 100,
+   "region": "whole_recent",
+   "state": "working",
+   "visible_working": true
+  }
+ ],
+ "updated_at": "2026-08-29T00:00:00Z",
+ "version": "2026.08.29.1"
+}

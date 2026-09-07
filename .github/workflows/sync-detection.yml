@@ -1,0 +1,78 @@
+name: sync-detection
+
+# Track herdr's agent-detection rules. Weekly (and on demand): fetch the current
+# herdrdev/herdr manifests, convert TOML->JSON, validate (schema + engine
+# capability + regex safety + engine self-test), and open a PR for review. On any
+# validation failure or an index schema_version bump the job fails and files an
+# issue; nothing unsafe is merged. Detection rules are third-party regexes the
+# daemon executes, so the PR is intentionally NOT auto-merged: a human reviews it.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"        # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validators
+        run: python -m pip install --quiet jsonschema
+
+      - name: Resolve upstream commit
+        id: upstream
+        run: |
+          sha=$(curl -fsS -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/herdrdev/herdr/commits/master \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["sha"])')
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Upstream herdrdev/herdr @ $sha"
+
+      - name: Sync + validate
+        run: |
+          set -o pipefail
+          python scripts/sync_detection.py \
+            --out detection --source github --ref "${{ steps.upstream.outputs.sha }}" \
+            2>&1 | tee sync.log
+
+      - name: Re-check committed self-tests against new rules
+        run: python scripts/detect.py --selftest
+
+      - name: Open pull request
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: detection-sync
+          delete-branch: true
+          add-paths: detection/**
+          commit-message: "chore(detection): sync from herdrdev/herdr@${{ steps.upstream.outputs.sha }}"
+          title: "chore(detection): sync from herdrdev/herdr@${{ steps.upstream.outputs.sha }}"
+          labels: detection-sync
+          body: |
+            Automated agent-detection rule sync.
+
+            - Source: `herdrdev/herdr@${{ steps.upstream.outputs.sha }}` (Apache-2.0, © Herdr, Inc.)
+            - Validation: JSON Schema + engine-capability + regex ReDoS smoke test + engine self-test all passed.
+            - Review the diff before merging; these are regexes the daemon executes.
+
+            The full sync log (including any `WARN:` lines, e.g. unsupported regions) is in
+            the workflow run's **Sync + validate** step output.
+
+      - name: File an issue on failure
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "detection sync failed: review required"
+          content-filepath: sync.log
+          labels: detection-sync, bug

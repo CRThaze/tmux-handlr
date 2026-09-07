@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validators
+        run: |
+          python -m pip install --quiet jsonschema
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+
+      - name: Shell syntax (bash -n)
+        run: |
+          for f in handlr.tmux scripts/*.sh segments/*.sh
+          do
+            echo "bash -n $f"; bash -n "$f"
+          done
+
+      - name: shellcheck
+        run: shellcheck -S error -e SC1090,SC1091 handlr.tmux scripts/*.sh segments/*.sh
+
+      - name: Python compile
+        run: python -m py_compile scripts/detect.py scripts/sync_detection.py
+
+      - name: Engine self-test
+        run: python scripts/detect.py --selftest
+
+      - name: Committed detection manifests validate
+        run: python scripts/sync_detection.py --check-only --out detection

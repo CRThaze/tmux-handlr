@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CRThaze/tmux-handlr/detection/manifest.schema.json",
+  "title": "tmux-handlr agent detection manifest",
+  "description": "Structure of a per-agent detection manifest (herdr-derived, converted TOML->JSON). Extra keys are tolerated for forward-compatibility; sync_detection.py separately flags unsupported regions / unknown matcher keys and unsafe regexes.",
+  "type": "object",
+  "required": ["id", "rules"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "version": {"type": "string"},
+    "min_engine_version": {"type": "integer", "minimum": 0},
+    "updated_at": {"type": "string"},
+    "aliases": {"type": "array", "items": {"type": "string"}},
+    "rules": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/rule"}
+    }
+  },
+  "$defs": {
+    "matchObject": {
+      "type": "object",
+      "properties": {
+        "regex": {"$ref": "#/$defs/stringOrList"},
+        "line_regex": {"$ref": "#/$defs/stringOrList"},
+        "contains": {"type": "array", "items": {"type": "string"}},
+        "any": {"type": "array", "items": {"$ref": "#/$defs/matchObject"}},
+        "all": {"type": "array", "items": {"$ref": "#/$defs/matchObject"}},
+        "not": {"type": "array", "items": {"$ref": "#/$defs/matchObject"}}
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["state", "priority", "region"],
+      "properties": {
+        "id": {"type": "string"},
+        "state": {"type": "string", "enum": ["working", "blocked", "idle", "unknown"]},
+        "priority": {"type": "integer"},
+        "region": {"type": "string", "minLength": 1},
+        "visible_working": {"type": "boolean"},
+        "visible_blocker": {"type": "boolean"},
+        "visible_idle": {"type": "boolean"},
+        "skip_state_update": {"type": "boolean"},
+        "regex": {"$ref": "#/$defs/stringOrList"},
+        "line_regex": {"$ref": "#/$defs/stringOrList"},
+        "contains": {"type": "array", "items": {"type": "string"}},
+        "any": {"type": "array", "items": {"$ref": "#/$defs/matchObject"}},
+        "all": {"type": "array", "items": {"$ref": "#/$defs/matchObject"}},
+        "not": {"type": "array", "items": {"$ref": "#/$defs/matchObject"}}
+      }
+    },
+    "stringOrList": {
+      "oneOf": [
+        {"type": "string"},
+        {"type": "array", "items": {"type": "string"}}
+      ]
+    }
+  }
+}

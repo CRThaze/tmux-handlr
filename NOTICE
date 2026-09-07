@@ -1,0 +1,24 @@
+tmux-handlr
+Copyright 2026 Diego (CRThaze)
+
+This product includes software developed at Herdr, Inc.
+
+The agent-detection rule manifests bundled under detection/ (the herdr agent
+*.json files) derive from herdr's agent-detection TOML manifests:
+
+    Source:  https://github.com/herdrdev/herdr
+    Path:    distribution/agent-detection/
+    Also served at: https://herdr.dev/agent-detection/
+    License: Apache License 2.0
+    Copyright (c) Herdr, Inc.
+
+They were translated from TOML to JSON verbatim (no rule content touched) for
+this plugin's pure-standard-library runtime engine. Each snapshot's upstream
+commit is recorded in detection/UPSTREAM.json. The full Apache License 2.0
+text lives in LICENSE.
+
+herdr ships nothing for the deepseek harness (dsh). detection/dsh-tui.json is
+original work (NOT derived from herdr) covering the dsh TUI interface, and is
+licensed Apache-2.0 with the rest of this repository. dsh interfaces can also
+self-report state through scripts/agent-state.sh; that override outranks the
+screen-scrape rules.

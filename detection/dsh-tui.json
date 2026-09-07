@@ -1,0 +1,43 @@
+{
+ "id": "dsh-tui",
+ "version": "2026.09.06.1",
+ "min_engine_version": 1,
+ "updated_at": "2026-09-06T00:00:00Z",
+ "aliases": ["dsh", "deepseek", "deepseek-harness", "deepseek-harness-tui"],
+ "_note": "Original tmux-handlr manifest (herdr ships none for dsh). Specific to the deepseek-harness TUI interface (@deepseek-ai/dsh --profile tui), named dsh-tui to distinguish it from other dsh interfaces (web, headless, …). dsh-tui normally self-reports state via dsh-herdr-agent-state -> agent-state.sh (an authoritative override honored above these rules); this manifest is the screen-scrape fallback for when that plugin isn't loaded. The 'dsh' alias lets a pane typed only by process-match still resolve here. No distinct needs-input signal observed yet.",
+ "rules": [
+  {
+   "id": "osc_title_working",
+   "state": "working",
+   "priority": 1050,
+   "region": "osc_title",
+   "visible_working": true,
+   "regex": ["^[⠀-⣿] "]
+  },
+  {
+   "id": "osc_title_idle",
+   "state": "idle",
+   "priority": 250,
+   "region": "osc_title",
+   "visible_idle": true,
+   "regex": ["^✦ "]
+  },
+  {
+   "id": "interrupt_hint_working",
+   "state": "working",
+   "priority": 500,
+   "region": "bottom_non_empty_lines(6)",
+   "visible_working": true,
+   "contains": ["esc to interrupt"]
+  },
+  {
+   "id": "live_prompt_box_idle",
+   "state": "idle",
+   "priority": 100,
+   "region": "prompt_box_body",
+   "visible_idle": true,
+   "line_regex": ["^ *❯"],
+   "not": [{"contains": ["esc to interrupt"]}]
+  }
+ ]
+}
