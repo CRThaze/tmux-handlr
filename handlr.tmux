@@ -20,6 +20,7 @@ set_binds() {
 	local menu_key
 	local dash_key
 	local sidebar_key
+	local dismiss_key
 	local style
 	local border
 	menu_key="$(get_tmux_option '@handlr-menu-key' 'a')"
@@ -27,6 +28,8 @@ set_binds() {
 	# Sidebar is opt-in: empty default binds no key (prefix+s is tmux's own
 	# session tree), so the user picks a free key to enable it.
 	sidebar_key="$(get_tmux_option '@handlr-sidebar-key' '')"
+	# Dismiss the current pane's done flash (back to idle); opt-in, empty = no bind.
+	dismiss_key="$(get_tmux_option '@handlr-dismiss-key' '')"
 	# Dashboard colors; overridable to match any theme.
 	style="$(get_tmux_option '@handlr-popup-style' 'bg=default,fg=default')"
 	border="$(get_tmux_option '@handlr-popup-border-style' 'fg=default,bg=default')"
@@ -37,6 +40,10 @@ set_binds() {
 	if [ -n "$sidebar_key" ]
 	then
 		tmux bind-key "$sidebar_key" run-shell "$CURRENT_DIR/scripts/agent-sidebar.sh"
+	fi
+	if [ -n "$dismiss_key" ]
+	then
+		tmux bind-key "$dismiss_key" run-shell "$CURRENT_DIR/scripts/agent-dismiss.sh '#{pane_id}'"
 	fi
 }
 

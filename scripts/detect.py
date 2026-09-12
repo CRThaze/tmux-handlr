@@ -389,6 +389,16 @@ def runtime_dir() -> Path:
     return d
 
 
+def take_dismiss(pane: str) -> bool:
+    """True if a 'dismiss done' was requested for this pane; consumes the marker.
+    agent-dismiss.sh writes it so the user can clear a held done flash early."""
+    try:
+        (runtime_dir() / "dismiss" / pane).unlink()
+        return True
+    except OSError:
+        return False
+
+
 def _int_opt(name: str, default: int, fallback: str = "") -> int:
     v = tmux_opt(name, "") or (tmux_opt(fallback, "") if fallback else "")
     try:
@@ -570,6 +580,12 @@ def daemon_loop() -> None:
                         continue        # no manifest, no verdict: the bash mtime fallback fills it
                     if raw is None:
                         raw = "idle"    # a manifest exists but nothing matched: idle
+                # A user "dismiss" drops a held done flash straight to idle instead
+                # of waiting out @handlr-done-window. Only acts when the pane reads
+                # idle (i.e. actually in the flash); a live agent is left untouched,
+                # and the one-shot marker is consumed either way.
+                if take_dismiss(pane) and raw == "idle":
+                    track[pane] = {"state": "idle", "done_until": None}
                 final = _synth(pane, raw, track, now, done_window)
                 if final is not None:
                     out[pane] = final
@@ -671,6 +687,15 @@ def demo() -> None:
         "╭───╮\n  ❯            ⍟\n╰───╯\n qwen · max", "idle")
     chk("dsh working (screen esc-to-interrupt)", "dsh-tui","\U0001F40B no-state-glyph",
         "✻ Pinging the model… · total 18s\n╭───╮\n  ❯       ⍟\n╰───╯\n esc to interrupt", "running")
+
+    # dismiss: a held "done" flash returns to idle once its tracked state is reset
+    # (what take_dismiss + the daemon do), instead of waiting out the done window.
+    tk: dict[str, dict] = {}
+    assert _synth("%1", "running", tk, 1000.0, 120) == "running"
+    assert _synth("%1", "idle", tk, 1001.0, 120) == "done"     # running -> idle flashes done
+    assert _synth("%1", "idle", tk, 1002.0, 120) == "done"     # and stays held
+    tk["%1"] = {"state": "idle", "done_until": None}           # the dismiss
+    assert _synth("%1", "idle", tk, 1003.0, 120) == "idle"     # now idle
 
     print(f"detect.py selftest OK ({len(set(id(v) for v in m.values()))} manifests loaded)")
 

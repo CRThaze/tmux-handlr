@@ -126,6 +126,8 @@ Per pane, each tick resolves state in order:
    manifest or the daemon isn't running.
 
 The green **done** flash is synthesized by the daemon on a working/needs-input to idle edge.
+It clears on its own after `@handlr-done-window`, or you can dismiss it early: bind a key via
+`@handlr-dismiss-key`, or run `scripts/agent-dismiss.sh [%pane]` / `--all`.
 
 ## Options
 
@@ -140,6 +142,7 @@ The green **done** flash is synthesized by the daemon on a working/needs-input t
 | `@handlr-sidebar-width` | `24` | Sidebar pane width, in columns. |
 | `@handlr-sidebar-position` | `left` | Which side the sidebar opens on: `left` or `right`. |
 | `@handlr-dashboard-icons` | `on` | Show each agent's type glyph (as in the `prefix+a` menu) in the `prefix+A` dashboard and the sidebar. `off` = text only. |
+| `@handlr-dismiss-key` | *(unset)* | `prefix +` this dismisses the **current pane's** done flash back to idle now. Opt-in: unset binds nothing. (`scripts/agent-dismiss.sh --all` clears every done pane at once.) |
 | `@handlr-daemon` | `on` | Run the detection daemon. `off` means timestamp-fallback only. |
 | `@handlr-processes` | *(the supported-agents set)* | Process names treated as agents (replaces the default list; see [Supported agents](#supported-agents)). |
 | `@handlr-extra-processes` | *(unset)* | **Appends** to the default list: add agents without restating it (e.g. the excluded `pi,amp,hermes`, at your own risk). |
@@ -238,10 +241,14 @@ server/topic/token from an env file (default
 
 Two optional claude hooks sharpen detection:
 
-- **PermissionRequest** runs `touch "${XDG_CACHE_HOME:-$HOME/.cache}/agent-state/needs-input/$TMUX_PANE"`
+- **PermissionRequest** runs `d="${XDG_CACHE_HOME:-$HOME/.cache}/agent-state/needs-input"; [ -n "$TMUX_PANE" ] || exit 0; mkdir -p "$d"; touch "$d/$TMUX_PANE"`
   makes a blocked claude pane show instantly (accelerator; screen-scraping catches it anyway).
-- **Stop** runs `rm -f "${XDG_CACHE_HOME:-$HOME/.cache}/agent-state/needs-input/$TMUX_PANE"`
+- **Stop** runs `[ -n "$TMUX_PANE" ] || exit 0; rm -f "${XDG_CACHE_HOME:-$HOME/.cache}/agent-state/needs-input/$TMUX_PANE"`
   clears that marker.
+
+The `[ -n "$TMUX_PANE" ] || exit 0` guard is required: when claude runs outside tmux (or in a
+context that doesn't inherit `$TMUX_PANE`), an unguarded command collapses to the marker
+*directory* and `rm`/`touch` errors out in the hook.
 
 ## Self-reporting agents (dsh, etc.)
 
