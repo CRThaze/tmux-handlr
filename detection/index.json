@@ -57,8 +57,16 @@
    "path": "kiro.toml"
   },
   {
+   "id": "letta",
+   "path": "letta.toml"
+  },
+  {
    "id": "maki",
    "path": "maki.toml"
+  },
+  {
+   "id": "muse",
+   "path": "muse.toml"
   },
   {
    "id": "opencode",
