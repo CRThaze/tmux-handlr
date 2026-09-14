@@ -48,36 +48,13 @@ set_binds() {
 }
 
 start_daemon() {
-	if command -v python3 >/dev/null 2>&1
-	then
-		local rundir
-		local pidfile
-		local pid
-		rundir="${XDG_RUNTIME_DIR:-/tmp}/tmux-handlr"
-		if mkdir -p "$rundir" 2>/dev/null
-		then
-			pidfile="$rundir/daemon.pid"
-			if [ -f "$pidfile" ]
-			then
-				pid="$(cat "$pidfile" 2>/dev/null || true)"
-				if [ -n "$pid" ]
-				then
-					# Prove the pid is a live process.
-					if kill -0 "$pid" 2>/dev/null
-					then
-						return 0  # Already running, so bail.
-					fi
-				fi
-			fi
-			nohup python3 "$CURRENT_DIR/scripts/detect.py" --daemon >/dev/null 2>&1 &
-			echo $! > "$pidfile"
-			disown 2>/dev/null || true
-		else
-			return 0
-		fi
-	else
-		return 0   # no python3, so the UI degrades to the mtime fallback
-	fi
+	# One implementation of "make sure the daemon is up" lives in the status lib
+	# (_handlr_ensure_daemon: pgrep-guarded so it can't double-spawn). Reuse it here
+	# so init and the status-line supervisor share the exact same spawn guard,
+	# instead of a second pidfile-only check that dups when the pidfile desyncs.
+	# shellcheck source=scripts/agent-status-lib.sh
+	. "$CURRENT_DIR/scripts/agent-status-lib.sh" 2>/dev/null || return 0
+	_handlr_ensure_daemon
 }
 
 # Non-powerline users get the indicator appended to status-right as a #() job.

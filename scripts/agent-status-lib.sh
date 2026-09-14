@@ -433,6 +433,43 @@ enum_agent_panes() {
 		-F "#{pane_id}${T}#{pane_tty}${T}#{pane_pid}${T}#{window_index}${T}#{window_name}${T}#{pane_current_path}${T}#{pane_title}" 2>/dev/null)
 }
 
+# Revive the detect.py daemon if it has died. enum_agents runs on every status
+# redraw, so this doubles as the daemon's supervisor: the daemon is the only path
+# that resolves state PER PANE (screen-scrape), so without it several agents in one
+# directory all read the same cwd-keyed mtime state. Never spawns a duplicate;
+# respects @handlr-daemon off and a missing python3. Liveness is checked against the
+# actual process (pgrep), not the pidfile: the file desyncs (a stale or removed pid)
+# and there's a second spawn site (handlr.tmux's start_daemon), so trusting it alone
+# double-spawns. The [d]etect trick stops pgrep from matching its own argv; the
+# pidfile is the fallback when pgrep is absent.
+# ponytail: no lock, so two renders in the very same instant with the daemon down
+# could still double-spawn. Harmless (both write the same cache), and a dup self-reaps
+# when the tmux server exits. Add a lock only if that ever bites.
+_handlr_ensure_daemon() {
+	[ "$(tmux show-option -gqv @handlr-daemon 2>/dev/null || echo on)" != off ] || return 0
+	command -v python3 >/dev/null 2>&1 || return 0
+	local rundir="${XDG_RUNTIME_DIR:-/tmp}/tmux-handlr"
+	local pidfile="$rundir/daemon.pid"
+	local pid
+	if command -v pgrep >/dev/null 2>&1
+	then
+		pgrep -f '[d]etect\.py --daemon' >/dev/null 2>&1 && return 0
+	elif [ -f "$pidfile" ]
+	then
+		pid=$(cat "$pidfile" 2>/dev/null || :)
+		if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+		then
+			return 0
+		fi
+	fi
+	mkdir -p "$rundir" 2>/dev/null || return 0
+	local script="${BASH_SOURCE[0]%/*}/detect.py"
+	[ -r "$script" ] || return 0
+	nohup python3 "$script" --daemon >/dev/null 2>&1 &
+	echo $! > "$pidfile"
+	disown 2>/dev/null || true
+}
+
 # enum_agents [session]: TSV rows, one per agent pane, WITH state:
 #   pane  type  state  tty  win_index  win_name  pid  cwd  title
 # State comes from the detect.py daemon's screen-scrape cache
@@ -475,11 +512,13 @@ enum_agents() {
 	local cmt
 	local cp
 	local cs
+	local fresh=0
 	if [ -r "$cachefile" ]
 	then
 		cmt=$(stat -c %Y "$cachefile" 2>/dev/null || echo 0)
 		if [ "$(( now - cmt ))" -lt 10 ]
 		then
+			fresh=1
 			while IFS=$'\t' read -r cp cs
 			do
 				if [ -n "$cp" ]
@@ -488,6 +527,12 @@ enum_agents() {
 				fi
 			done < "$cachefile"
 		fi
+	fi
+	# A stale/missing cache means the daemon died: revive it (the accurate per-pane
+	# path). Its first write lands in ~1-2s; until then the mtime fallback fills in.
+	if [ "$fresh" -eq 0 ]
+	then
+		_handlr_ensure_daemon
 	fi
 
 	local pane
