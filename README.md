@@ -1,14 +1,19 @@
-# tmux-handlr
+# tmux-handlr: coding-agent status for tmux
 
-![tmux handlr in action](doc/img/overview.png)
+A **tmux plugin** that shows the live state of every coding agent you have running
+(Claude Code, Codex, OpenCode, Gemini CLI, Copilot, Cursor, and more) as status-line dots,
+a switcher menu, a dashboard, and a sidebar, with push notifications when an agent
+finishes or is waiting on you.
+
+![tmux session with the handlr sidebar listing nine agent panes by state, the prefix+a agent switcher menu open, and colored per-agent status dots in the powerline status bar](doc/img/overview.png)
 
 > Herdr is a great agent tracker, it's just missing a good multiplexer.
 
-tmux users can now get Herdr-style harness status information without having to
-switch away from their favorite multiplexer.
+tmux users can now get [Herdr](https://github.com/herdrdev/herdr)-style harness status
+information without having to switch away from their favorite multiplexer.
 
-(Note: Herdr is actually a pretty performant multiplexer and no slander against
-Herdr, its users, its devlopers, or their coding agents is intended.)
+*(Note: Herdr is actually a pretty performant multiplexer and no slander against
+Herdr, its users, its developers, or their coding agents is intended.)*
 
 ## What This Does
 
@@ -17,6 +22,8 @@ is **working**, **needs input**, **done**, or **idle**; you see it as clickable 
 dots, a `prefix + a` switcher menu, and a `prefix + A` detail dashboard (also available as a
 toggle-able **sidebar** pane), plus an optional [ntfy](https://ntfy.sh) push when an agent
 finishes or stalls on a prompt.
+
+![The prefix+A dashboard popup: a table of agent panes with state, window, uptime, model, cost, tokens, working directory, and pane title](doc/img/dashboard.png)
 
 Out of the box it detects **claude, codex, opencode, dsh (deepseek)**, plus every agent
 [herdr](https://github.com/herdrdev/herdr) ships rules for (cursor, gemini, amp, cline, …).
@@ -287,6 +294,40 @@ python3 scripts/sync_detection.py --check-only --out detection   # validate bund
 
 Test locally without publishing: symlink `~/.tmux/plugins/tmux-handlr` to your checkout, then
 `prefix + r`.
+
+## FAQ
+
+### How do I get notified when Claude Code (or any agent) finishes in tmux?
+
+Set `@handlr-notify-command` to a script; the daemon runs it on every `done` and
+`needs-input` edge. `scripts/agent-ntfy-notify.sh` is a ready-made [ntfy](https://ntfy.sh)
+pusher, so your phone buzzes when an agent finishes or asks for permission. See
+[Notifications](#notifications).
+
+### How do I see which tmux pane is waiting for input?
+
+Panes in the `needs-input` state show a red dot in the status line, red text in the
+`prefix + a` menu and `prefix + A` dashboard, and are listed in the sidebar. Pick the entry in
+the menu to jump there, or click the dot once you add the mouse binding from
+[Status-line dots](#status-line-dots).
+
+### Is this a herdr alternative for tmux?
+
+It is a herdr companion for tmux, not a replacement. It reuses herdr's detection rules and
+gives you the same per-agent state inside tmux, without a separate multiplexer. If you already
+live in tmux, this is the piece herdr is missing.
+
+### Does it work with Codex, OpenCode, Gemini CLI, Copilot, Cursor, aider?
+
+Yes for all of the above and more; see [Supported agents](#supported-agents). aider has no
+upstream rules and falls back to the timestamp heuristic. Anything else can self-report
+via `scripts/agent-state.sh`.
+
+### Does it need Python packages or a daemon?
+
+The detection engine is Python 3.6+ standard library only, no pip installs. A small
+background daemon polls panes every ~1.5s; disable it with `@handlr-daemon off` to fall
+back to the mtime heuristic.
 
 ## License
 
