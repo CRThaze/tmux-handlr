@@ -158,24 +158,27 @@
     }
    ],
    "id": "weak_blocker",
+   "not": [
+    {
+     "regex": [
+      "(?m)^›[⠁⠂⠄⠈⠐⠠⡀⢀][^\\n]*(?:\\n(?:[^•■✗✓\\n][^\\n]*)?)*\\z"
+     ]
+    }
+   ],
    "priority": 600,
    "region": "whole_recent_without_current_prompt_marker",
    "state": "blocked"
   },
   {
+   "contains": [
+    "esc to interrupt"
+   ],
    "id": "screen_working_fallback",
-   "line_regex": [
-    "^[•◦]\\s+Working \\([^)]*esc to interrupt\\)(?: · .*)?$"
-   ],
-   "not": [
-    {
-     "contains": [
-      "■ Conversation interrupted"
-     ]
-    }
-   ],
    "priority": 500,
-   "region": "bottom_non_empty_lines(3)",
+   "regex": [
+    "(?m)^(?:[•◦][ \\t]+)?[^\\s›•◦■✗✓─][^\\r\\n]* \\((?:[0-9]+[hm] )*[0-9]+s • esc to interrupt\\)(?: · [^\\r\\n]*)?(?:\\r?\\n(?:[^•◦›■✗✓─\\r\\n][^\\r\\n]*|•[ \\t]+(?:Queued\\s+follow-up\\s+inputs|Messages\\s+to\\s+be\\s+submitted\\s+after\\s+next\\s+tool\\s+call(?:\\s+\\(press\\s+esc\\s+to\\s+interrupt\\s+and\\s+send\\s+immediately\\))?|Messages\\s+to\\s+be\\s+submitted\\s+at\\s+end\\s+of\\s+turn)|›[⠁⠂⠄⠈⠐⠠⡀⢀][^\\r\\n]*)?)*\\s*\\z"
+   ],
+   "region": "before_current_prompt_marker",
    "state": "working",
    "visible_working": true
   },
@@ -202,6 +205,6 @@
    "visible_idle": true
   }
  ],
- "updated_at": "2026-09-05T00:00:00Z",
- "version": "2026.09.05.1"
+ "updated_at": "2026-09-14T00:00:00Z",
+ "version": "2026.09.14.1"
 }

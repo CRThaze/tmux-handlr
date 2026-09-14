@@ -1,5 +1,5 @@
 {
- "count": 20,
+ "count": 22,
  "ids": [
   "agy",
   "amp",
@@ -16,15 +16,17 @@
   "kilo",
   "kimi",
   "kiro",
+  "letta",
   "maki",
+  "muse",
   "opencode",
   "pi",
   "qodercli",
   "qwen"
  ],
- "ref": "ec05328a4413e38ebdcb84365938345e9cf47431",
+ "ref": "ad415672878a98bfac92d0e7abed0fc8db26e16a",
  "schema_version": 1,
  "source": "herdrdev/herdr",
- "synced_at": "2026-09-05T22:11:07Z",
- "url": "https://raw.githubusercontent.com/herdrdev/herdr/ec05328a4413e38ebdcb84365938345e9cf47431/distribution/agent-detection/"
+ "synced_at": "2026-09-14T17:02:09Z",
+ "url": "https://raw.githubusercontent.com/herdrdev/herdr/ad415672878a98bfac92d0e7abed0fc8db26e16a/distribution/agent-detection/"
 }
