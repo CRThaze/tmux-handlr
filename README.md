@@ -141,7 +141,7 @@ It clears on its own after `@handlr-done-window`, or you can dismiss it early: b
 | Option | Default | Meaning |
 |---|---|---|
 | `@handlr-setup-binds` | `on` | Bind the menu/dashboard keys. Set `off` to keep your own binds. |
-| `@handlr-menu-key` | `a` | `prefix +` this opens the agent switcher menu. |
+| `@handlr-menu-key` | `a` | `prefix +` this opens the agent switcher menu; opened from inside an agent pane, that agent's row starts selected. |
 | `@handlr-dashboard-key` | `A` | `prefix +` this opens the detail dashboard. |
 | `@handlr-popup-style` | `bg=default,fg=default` | Dashboard popup `-s` style. |
 | `@handlr-popup-border-style` | `fg=default,bg=default` | Dashboard popup `-S` border style. |
@@ -150,6 +150,7 @@ It clears on its own after `@handlr-done-window`, or you can dismiss it early: b
 | `@handlr-sidebar-position` | `left` | Which side the sidebar opens on: `left` or `right`. |
 | `@handlr-dashboard-icons` | `on` | Show each agent's type glyph (as in the `prefix+a` menu) in the `prefix+A` dashboard and the sidebar. `off` = text only. |
 | `@handlr-dismiss-key` | *(unset)* | `prefix +` this dismisses the **current pane's** done flash back to idle now. Opt-in: unset binds nothing. (`scripts/agent-dismiss.sh --all` clears every done pane at once.) |
+| `@handlr-all-sessions` | `on` | List agents from **every** tmux session in the dots, menu, dashboard, and sidebar (menu/dashboard rows get a `session:` prefix, and picking one switches the client there). `off` scopes them to the client's current session. |
 | `@handlr-daemon` | `on` | Run the detection daemon. `off` means timestamp-fallback only. |
 | `@handlr-processes` | *(the supported-agents set)* | Process names treated as agents (replaces the default list; see [Supported agents](#supported-agents)). |
 | `@handlr-extra-processes` | *(unset)* | **Appends** to the default list: add agents without restating it (e.g. the excluded `pi,amp,hermes`, at your own risk). |
@@ -233,7 +234,9 @@ or set `@handlr-status-right 'on'` and `handlr.tmux` appends that for you. (Skip
 powerline: it rewrites `status-right` on every load and would drop it.)
 
 Either way, each indicator carries a `range=user|<pane_id>` marker; add a `MouseDown1Status`
-binding that matches `^%[0-9]+$` and jumps to the pane to make them click-to-jump.
+binding that matches `^%[0-9]+$` and jumps to the pane to make them click-to-jump. Start the
+jump with `switch-client -t <pane_id>` (then `select-window` / `select-pane`) so a click also
+works for an agent in another session.
 
 ## Notifications
 

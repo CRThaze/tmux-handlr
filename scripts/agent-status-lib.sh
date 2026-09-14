@@ -85,6 +85,12 @@ _handlr_color() {
 	printf '%s' "${v:-$def}"
 }
 
+# True unless @handlr-all-sessions is off: the UI lists agents from every tmux
+# session (the daemon always tracks them all), not only the client's own.
+_handlr_all_sessions() {
+	[ "$(tmux show-option -gqv @handlr-all-sessions 2>/dev/null || :)" != off ]
+}
+
 # cwd to claude's project-dir name. Claude (a JS app) encodes it with
 # cwd.replace(/[^a-zA-Z0-9]/g,'-'), one dash per character. GNU sed only
 # reproduces that under a UTF-8 *C* locale; the login locale (en_US.UTF-8)
@@ -291,7 +297,7 @@ agent_state() {
 }
 
 # enum_agent_panes [session]: TSV rows, one per agent pane, WITHOUT state:
-#   pane  type  tty  win_index  win_name  pid  cwd  title
+#   pane  type  tty  win_index  win_name  pid  cwd  title  session_name
 # This is the enumeration half, i.e. "which panes are agents, and of what type",
 # and the single source of truth behind both enum_agents (below) and the
 # detect.py daemon (which resolves state by screen-scraping). Model is NOT
@@ -388,7 +394,8 @@ enum_agent_panes() {
 	local type
 	local tag
 	local p
-	while IFS=$'\t' read -r pane tty pid widx wname cwd title
+	local sname
+	while IFS=$'\t' read -r pane tty pid widx wname cwd title sname
 	do
 		[ -n "$tty" ] || continue
 		cmds="${TTY_CMD[${tty#/dev/}]:-}"
@@ -427,10 +434,10 @@ enum_agent_panes() {
 				type=qodercli
 				;;
 		esac
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-			"$pane" "$type" "$tty" "$widx" "$wname" "$pid" "$cwd" "$title"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$pane" "$type" "$tty" "$widx" "$wname" "$pid" "$cwd" "$title" "$sname"
 	done < <(tmux list-panes "${scope[@]}" \
-		-F "#{pane_id}${T}#{pane_tty}${T}#{pane_pid}${T}#{window_index}${T}#{window_name}${T}#{pane_current_path}${T}#{pane_title}" 2>/dev/null)
+		-F "#{pane_id}${T}#{pane_tty}${T}#{pane_pid}${T}#{window_index}${T}#{window_name}${T}#{pane_current_path}${T}#{pane_title}${T}#{session_name}" 2>/dev/null)
 }
 
 # Revive the detect.py daemon if it has died. enum_agents runs on every status
@@ -471,7 +478,9 @@ _handlr_ensure_daemon() {
 }
 
 # enum_agents [session]: TSV rows, one per agent pane, WITH state:
-#   pane  type  state  tty  win_index  win_name  pid  cwd  title
+#   pane  type  state  tty  win_index  win_name  pid  cwd  title  session_name
+# The session arg only narrows the list when @handlr-all-sessions is off; by
+# default every session's agents are listed, whichever client asks.
 # State comes from the detect.py daemon's screen-scrape cache
 # (${XDG_RUNTIME_DIR:-/tmp}/tmux-handlr/state.tsv). When that cache is missing
 # or stale (daemon down for > 10s), each pane falls back to the mtime heuristic
@@ -480,6 +489,10 @@ _handlr_ensure_daemon() {
 # all three always agree.
 enum_agents() {
 	local session="${1:-}"
+	if _handlr_all_sessions
+	then
+		session=""
+	fi
 
 	# mtime-fallback windows (used only when the cache lacks a pane).
 	local now
@@ -543,8 +556,9 @@ enum_agents() {
 	local pid
 	local cwd
 	local title
+	local sname
 	local state
-	while IFS=$'\t' read -r pane type tty widx wname pid cwd title
+	while IFS=$'\t' read -r pane type tty widx wname pid cwd title sname
 	do
 		[ -n "$pane" ] || continue
 		if [ -n "${CACHE[$pane]:-}" ]
@@ -553,8 +567,8 @@ enum_agents() {
 		else
 			state=$(agent_state "$type" "$cwd" "$pane" "$now" "$rw" "$dw")
 		fi
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-			"$pane" "$type" "$state" "$tty" "$widx" "$wname" "$pid" "$cwd" "$title"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$pane" "$type" "$state" "$tty" "$widx" "$wname" "$pid" "$cwd" "$title" "$sname"
 	done < <(enum_agent_panes "$session")
 }
 
@@ -654,7 +668,8 @@ render_pane_indicators() {
 	local pid
 	local cwd
 	local title
-	while IFS=$'\t' read -r pane type state tty widx wname pid cwd title
+	local sname
+	while IFS=$'\t' read -r pane type state tty widx wname pid cwd title sname
 	do
 		[ -n "$pane" ] || continue
 		rows+=("$type|$pane|$state")

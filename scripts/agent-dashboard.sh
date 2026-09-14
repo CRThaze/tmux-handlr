@@ -22,6 +22,15 @@ if [ -z "$session" ]
 then
 	session="$(tmux display-message -p '#{session_name}' 2>/dev/null)"
 fi
+ALL=""
+scope_txt=" in this session"
+scope_lbl="session ${session}"
+if _handlr_all_sessions
+then
+	ALL=1
+	scope_txt=""
+	scope_lbl="all sessions"
+fi
 
 # Standard ANSI / 256-palette colors (they resolve to the terminal theme rather
 # than a hardcoded one). TERRA (the claude accent) is a 256-color terracotta.
@@ -227,6 +236,7 @@ render() {
 	local pid
 	local cwd
 	local title
+	local sname
 	local model
 	local sid
 	local sc
@@ -237,7 +247,7 @@ render() {
 	local et
 	local fcost
 	local ftok
-	while IFS=$'\t' read -r pane type state tty widx wname pid cwd title
+	while IFS=$'\t' read -r pane type state tty widx wname pid cwd title sname
 	do
 		[ -n "$pane" ] || continue
 		if [ "${S_CACHE[$pane]:-}" != "$state" ] || [ -z "${M_CACHE[$pane]:-}" ]
@@ -306,6 +316,10 @@ render() {
 			G_CACHE[$type]="$(emoji_for "$type")"
 		fi
 		cwds="${cwd/#$HOME/\~}"; where="${widx}:${wname}.${pane#%}"
+		if [ -n "$ALL" ]
+		then
+			where="${sname}:${where}"
+		fi
 		P_ic[n]="$icol"; P_glyph[n]="${G_CACHE[$type]}"; P_type[n]="$type"; P_state[n]="$state"; P_sc[n]="$sc"
 		P_where[n]="$where"; P_up[n]="$up"; P_model[n]="$model"; P_cost[n]="$fcost"; P_tok[n]="$ftok"
 		P_cwd[n]="$cwds"; P_title[n]="$title"
@@ -424,7 +438,7 @@ render() {
 	fi
 	printf -v seg " %-${w_cwd}s %s%s" "CWD" "TITLE" "$reset"; line+="$seg"
 	out+="${line}${esc}[K"$'\n'$'\n'
-	(( n == 0 )) && out+="  ${GREY}no agents in this session${reset}${esc}[K"$'\n'
+	(( n == 0 )) && out+="  ${GREY}no agents${scope_txt}${reset}${esc}[K"$'\n'
 	for (( i=0; i<n; i++ ))
 	do
 		trunc "${P_type[i]}"  "$w_type";  ft="$REPLY"
@@ -453,7 +467,7 @@ render() {
 		printf -v seg " %-${w_cwd}s %s" "$fc" "$fT"; line+="$seg"
 		out+="${line}${esc}[K"$'\n'
 	done
-	out+=$'\n'"  ${GREY}q quit · refresh 2s · session ${session}${reset}${esc}[K"
+	out+=$'\n'"  ${GREY}q quit · refresh 2s · ${scope_lbl}${reset}${esc}[K"
 	printf '%s%s' "$out" "${esc}[0J"
 }
 

@@ -418,7 +418,7 @@ def enum_agent_panes(lib: str) -> list[dict[str, str]] | None:
             stderr=subprocess.DEVNULL).decode("utf-8", "replace")
     except (subprocess.CalledProcessError, OSError):
         return []
-    cols = ("pane", "type", "tty", "widx", "wname", "pid", "cwd", "title")
+    cols = ("pane", "type", "tty", "widx", "wname", "pid", "cwd", "title", "sname")
     rows = []
     for line in out.split("\n"):
         if not line:
@@ -428,18 +428,6 @@ def enum_agent_panes(lib: str) -> list[dict[str, str]] | None:
             parts += [""] * (len(cols) - len(parts))
         rows.append(dict(zip(cols, parts)))
     return rows
-
-
-def pane_sessions() -> dict[str, tuple[str, str]]:
-    out = _tmux("list-panes", "-a", "-F", "#{pane_id}\t#{session_name}\t#{window_name}") or ""
-    m = {}
-    for line in out.split("\n"):
-        if not line:
-            continue
-        p = line.split("\t")
-        if len(p) >= 3:
-            m[p[0]] = (p[1], p[2])
-    return m
 
 
 _OVERRIDE_MAP = {
@@ -565,7 +553,6 @@ def daemon_loop() -> None:
             if rows is None:            # tmux server is gone
                 break
 
-            sess = pane_sessions() if (rows and notify_cmd) else {}
             out = {}
             seen = set()
             for row in rows:
@@ -600,9 +587,9 @@ def daemon_loop() -> None:
                 for pane, st in out.items():
                     if st != last_state.get(pane):
                         if st in notify_states:
-                            typ = next((r["type"] for r in rows if r["pane"] == pane), "agent")
-                            s, w = sess.get(pane, ("", ""))
-                            _fire_notify(notify_cmd, typ, st, s, w, notify_states)
+                            row = next((r for r in rows if r["pane"] == pane), {})
+                            _fire_notify(notify_cmd, row.get("type", "agent"), st,
+                                         row.get("sname", ""), row.get("wname", ""), notify_states)
                         last_state[pane] = st
 
             time.sleep(interval if rows else idle_backoff)
