@@ -30,32 +30,49 @@ Out of the box it detects **claude, codex, opencode, dsh (deepseek)**, plus ever
 
 ## Why the state is right
 
-Most tmux agent-status tools read file mtimes and guess. A long tool call then looks
-"done" the moment the transcript pauses, an idle prompt lingers as "working" for minutes,
-and "needs input" works for at most one agent. `handlr` takes herdr's approach instead: a
-background daemon reads each pane's **OSC title** (`#{pane_title}`) and **rendered screen**
-(`tmux capture-pane`) and matches both against a prioritized per-agent ruleset. The
-bundled rules are herdr's, under Apache-2.0, kept current by a scheduled sync; the
-timestamp heuristic only kicks in when a pane has no rules or the daemon is down, so the
-UI never goes blank.
+Most tmux agent-status tools watch a session file's modification time and guess, so a long
+tool call reads as "done" the moment the transcript pauses and an idle prompt reads as
+"working" for minutes. `handlr` reads each pane's title and rendered screen against herdr's
+per-agent rules instead, and the dots, menu, and dashboard all read one shared state cache,
+so they never disagree. Full mechanics are in [How detection works](#how-detection-works).
 
-Dots, menu, and dashboard all read the same state cache the daemon writes, which is why
-they can't disagree.
+## Quick start
 
-## Install
+New to customizing tmux? These four steps go from nothing to a working setup; only the
+first is required.
 
-With [TPM](https://github.com/tmux-plugins/tpm), add this to `~/.tmux.conf`:
+**1. Install the plugin.** With [TPM](https://github.com/tmux-plugins/tpm), add this line to
+`~/.tmux.conf`:
 
 ```tmux
 set -g @plugin 'CRThaze/tmux-handlr'
 ```
 
-then hit `prefix + I`. `handlr.tmux` starts the detection daemon and binds `prefix + a`
-/ `prefix + A`, unless you disable either.
+Then press `prefix + I` to fetch and load it. `handlr.tmux` starts the detection daemon and
+binds the menu and dashboard keys.
 
-The clickable **dots** ride on a [tmux-powerline](https://github.com/erikw/tmux-powerline)
-segment: add `agent_pane_dots` to your theme's segment list and make the segment file
-available to powerline (see [Status-line dots](#status-line-dots)).
+**2. Use the menu, dashboard, and sidebar, no extra setup.** Press `prefix + a` for the
+switcher menu (pick an agent to jump to it) and `prefix + A` for the detail dashboard. Both
+work immediately. Prefer your own keybindings? See [`@handlr-setup-binds`](#options).
+
+**3. (Optional) Add the always-visible status-line dots.** The colored dots live in your
+status line, so they need one wiring step:
+- **Using [tmux-powerline](https://github.com/erikw/tmux-powerline)?** Run
+  `scripts/install-segment.sh` (or set `@handlr-install-segment 'on'`), then add
+  `agent_pane_dots` to your theme's segment list.
+- **Not using powerline?** Set `@handlr-status-right 'on'` and handlr appends the dots to
+  `status-right` for you.
+
+Either route, the dots become click-to-jump once you add a short mouse binding. Full
+instructions are in [Status-line dots](#status-line-dots).
+
+**4. (Optional) Get notified when an agent finishes or needs you.** Point
+`@handlr-notify-command` at a script; a ready-made [ntfy](https://ntfy.sh) pusher ships in
+`scripts/agent-ntfy-notify.sh`. See [Notifications](#notifications).
+
+The glyphs look best with a [Nerd Font](https://www.nerdfonts.com/); if you don't have one,
+the dots still work and you can swap the label glyphs (see the Nerd Font note under
+[Options](#options)).
 
 ## Requirements
 
@@ -111,7 +128,7 @@ Notes:
   `scripts/agent-state.sh --agent <name> --state …` (no false-positive risk).
 - Any agent not listed falls back to 🤖 and the mtime heuristic.
 
-## How it works
+## How detection works
 
 ```
 handlr.tmux ──starts──▶ detect.py --daemon ──loops every ~1.5s──▶ state cache (TSV)
@@ -121,20 +138,34 @@ handlr.tmux ──starts──▶ detect.py --daemon ──loops every ~1.5s─�
                                               agent_pane_dots segment · prefix+a menu · prefix+A dashboard
 ```
 
-Per pane, each tick resolves state in order:
+The daemon polls every agent pane about every 1.5s and decides each pane's state with a
+**fallback ladder**: it takes the first rung that gives a confident answer and skips the
+rest. Higher rungs are both cheaper to check and more trustworthy, so the ladder is ordered
+strongest first:
 
-1. **Authoritative override:** a state a harness reported about itself via
-   `scripts/agent-state.sh` (e.g. dsh through `dsh-herdr-agent-state`). Wins over everything.
-2. **OSC title:** cheap; catches most claude/codex working/idle from `#{pane_title}` with
-   no screen capture.
-3. **Screen scrape:** `capture-pane` + the full prioritized ruleset (permission prompts,
-   spinners, empty prompt box, …). This is what makes "needs input" work for every agent.
-4. **Timestamp fallback:** the session-file mtime heuristic, used only when a pane has no
-   manifest or the daemon isn't running.
+1. **Self-reported state, authoritative.** If the harness told handlr its own state through
+   `scripts/agent-state.sh` (dsh does this via `dsh-herdr-agent-state`), handlr trusts it over
+   everything below: the agent said so, there is nothing to guess. See
+   [Self-reporting agents](#self-reporting-agents-dsh-etc).
+2. **OSC title.** The pane's terminal title (`#{pane_title}`) is free to read and already
+   carries working/idle for most claude and codex sessions, so handlr checks it before paying
+   for a screen capture.
+3. **Screen scrape.** `tmux capture-pane` renders the pane and handlr matches it against a
+   prioritized per-agent ruleset (permission prompts, spinners, the empty prompt box, …). This
+   rung is what makes "needs input" work for every agent, not just one. The rules are herdr's,
+   bundled under Apache-2.0 and kept current by a scheduled sync (see
+   [Detection rules & updates](#detection-rules--updates)).
+4. **Timestamp fallback.** Only when no rule matches the pane, or the daemon isn't running at
+   all, handlr falls back to the session-file mtime heuristic. It is the least precise rung, so
+   it sits last, but it keeps the UI on a best-effort guess instead of going blank.
 
-The green **done** flash is synthesized by the daemon on a working/needs-input to idle edge.
-It clears on its own after `@handlr-done-window`, or you can dismiss it early: bind a key via
-`@handlr-dismiss-key`, or run `scripts/agent-dismiss.sh [%pane]` / `--all`.
+The green **done** flash sits outside the ladder: the daemon synthesizes it when a pane
+crosses from working or needs-input to idle, holds it for `@handlr-done-window`, then lets it
+settle to idle. Dismiss it early by binding `@handlr-dismiss-key`, or run
+`scripts/agent-dismiss.sh [%pane]` / `--all`.
+
+Because the dots, the `prefix + a` menu, and the `prefix + A` dashboard all read the single
+state cache the daemon writes, they can never show different states for the same pane.
 
 ## Options
 
