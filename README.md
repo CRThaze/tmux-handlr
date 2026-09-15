@@ -185,6 +185,7 @@ state cache the daemon writes, they can never show different states for the same
 | `@handlr-dismiss-key` | *(unset)* | `prefix +` this dismisses the **current pane's** done flash back to idle now. Opt-in: unset binds nothing. (`scripts/agent-dismiss.sh --all` clears every done pane at once.) |
 | `@handlr-all-sessions` | `on` | List agents from **every** tmux session in the dots, menu, dashboard, and sidebar (menu/dashboard rows get a `session:` prefix, and picking one switches the client there). `off` scopes them to the client's current session. |
 | `@handlr-daemon` | `on` | Run the detection daemon. `off` means timestamp-fallback only. |
+| `@handlr-restart-key` | *(unset)* | `prefix +` this restarts the detection daemon (kills the running one, respawns it). Opt-in: unset binds nothing, so pick a free key (e.g. `R`). |
 | `@handlr-processes` | *(the supported-agents set)* | Process names treated as agents (replaces the default list; see [Supported agents](#supported-agents)). |
 | `@handlr-extra-processes` | *(unset)* | **Appends** to the default list: add agents without restating it (e.g. the excluded `pi,amp,hermes`, at your own risk). |
 | `@handlr-running-window` | `20` | Fallback: seconds of write-activity that counts as running. |
@@ -377,7 +378,9 @@ via `scripts/agent-state.sh`.
 
 The detection engine is Python 3.6+ standard library only, no pip installs. A small
 background daemon polls panes every ~1.5s; disable it with `@handlr-daemon off` to fall
-back to the mtime heuristic.
+back to the mtime heuristic. It self-heals (any status redraw respawns a dead one), but you
+can force a restart by binding `@handlr-restart-key` or running
+`scripts/agent-daemon-restart.sh`.
 
 ## License
 
