@@ -233,10 +233,23 @@ set -ga status-right '#($HOME/.tmux/plugins/tmux-handlr/scripts/handlr-status.sh
 or set `@handlr-status-right 'on'` and `handlr.tmux` appends that for you. (Skip this under
 powerline: it rewrites `status-right` on every load and would drop it.)
 
-Either way, each indicator carries a `range=user|<pane_id>` marker; add a `MouseDown1Status`
-binding that matches `^%[0-9]+$` and jumps to the pane to make them click-to-jump. Start the
-jump with `switch-client -t <pane_id>` (then `select-window` / `select-pane`) so a click also
-works for an agent in another session.
+### Mouse Support
+
+Whichever route you used (powerline segment or plain `status-right`), each indicator
+carries a `range=user|<pane_id>` marker. To make the dots click-to-jump, add a
+`MouseDown1Status` binding that matches the marker and selects that pane:
+
+```tmux
+bind -n MouseDown1Status {
+	if -F '#{m/r:^%[0-9]+$,#{mouse_status_range}}' {
+		run-shell "tmux select-window -t '#{mouse_status_range}'; tmux select-pane -t '#{mouse_status_range}'"
+	} {}
+}
+```
+
+`MouseDown1Status` is one global binding, so if you already dispatch other clickable
+status elements (tabs, the session name), fold the `^%[0-9]+$` check into that existing
+`if`-chain instead of replacing it.
 
 ## Notifications
 
