@@ -459,24 +459,37 @@ def read_override(pane: str, now: float, ttl: float) -> str | None:
     return _OVERRIDE_MAP.get(parts[0])
 
 
-def _synth(pane: str, raw: str, track: dict[str, dict], now: float, done_window: int) -> str | None:
+def _synth(pane: str, raw: str, track: dict[str, dict], now: float,
+           done_window: int, min_done: float = 0) -> str | None:
     """Fold a raw state (running|needs-input|idle|HOLD) into the per-pane state,
-    synthesizing a transient 'done' on a running/needs-input -> idle edge."""
-    t = track.setdefault(pane, {"state": None, "done_until": None})
+    synthesizing a transient 'done' on a running/needs-input -> idle edge.
+
+    min_done debounces that edge: idle must persist that many seconds before we
+    flash done, so a momentary quiet (between steps, or before the after-action
+    report finishes printing) is held as the prior busy state instead of a
+    premature green. A running/needs-input reading inside the window cancels it."""
+    t = track.setdefault(pane, {"state": None, "done_until": None, "idle_since": None})
     if raw == HOLD:
         if t["state"] == "done" and t["done_until"] and now >= t["done_until"]:
             t["state"] = "idle"; t["done_until"] = None
         return t["state"]
     prev = t["state"]
     if raw in {"running", "needs-input"}:
-        t["state"] = raw; t["done_until"] = None
+        t["state"] = raw; t["done_until"] = None; t["idle_since"] = None
     else:  # idle
         if prev in {"running", "needs-input"}:
-            t["state"] = "done"; t["done_until"] = now + done_window
+            if min_done <= 0:
+                t["state"] = "done"; t["done_until"] = now + done_window
+            elif t.get("idle_since") is None:
+                t["idle_since"] = now                       # start the debounce; hold prev
+            elif now - t["idle_since"] >= min_done:
+                t["state"] = "done"; t["done_until"] = now + done_window
+                t["idle_since"] = None
+            # else: still debouncing, keep prev (running/needs-input)
         elif prev == "done" and t["done_until"] and now < t["done_until"]:
             t["state"] = "done"
         else:
-            t["state"] = "idle"; t["done_until"] = None
+            t["state"] = "idle"; t["done_until"] = None; t["idle_since"] = None
     return t["state"]
 
 
@@ -536,7 +549,7 @@ def daemon_loop() -> None:
     track = {}            # pane -> {state, done_until}
     last_state = {}       # pane -> last state we notified on
     cfg_at = 0.0
-    done_window = notify_cmd = notify_states = marker_on = None
+    done_window = done_delay = notify_cmd = notify_states = marker_on = None
     interval, idle_backoff = 1.5, 5.0
 
     try:
@@ -544,6 +557,7 @@ def daemon_loop() -> None:
             now = time.time()
             if now - cfg_at > 20:       # pick up option changes without a restart
                 done_window = _int_opt("@handlr-done-window", 120, "@agent-status-done-window")
+                done_delay = _int_opt("@handlr-done-delay", 3)
                 notify_cmd = tmux_opt("@handlr-notify-command", "")
                 notify_states = set(s for s in tmux_opt("@handlr-notify-states", "done,needs-input").split(",") if s)
                 marker_on = tmux_opt("@handlr-marker", "on") != "off"
@@ -572,8 +586,8 @@ def daemon_loop() -> None:
                 # idle (i.e. actually in the flash); a live agent is left untouched,
                 # and the one-shot marker is consumed either way.
                 if take_dismiss(pane) and raw == "idle":
-                    track[pane] = {"state": "idle", "done_until": None}
-                final = _synth(pane, raw, track, now, done_window)
+                    track[pane] = {"state": "idle", "done_until": None, "idle_since": None}
+                final = _synth(pane, raw, track, now, done_window, done_delay)
                 if final is not None:
                     out[pane] = final
 
@@ -683,6 +697,15 @@ def demo() -> None:
     assert _synth("%1", "idle", tk, 1002.0, 120) == "done"     # and stays held
     tk["%1"] = {"state": "idle", "done_until": None}           # the dismiss
     assert _synth("%1", "idle", tk, 1003.0, 120) == "idle"     # now idle
+
+    # done-delay debounce: idle must persist min_done seconds before flashing done;
+    # a blip back to running inside the window cancels it.
+    tk = {}
+    assert _synth("%2", "running", tk, 1000.0, 120, 3) == "running"
+    assert _synth("%2", "idle", tk, 1001.0, 120, 3) == "running"   # held: 1s < 3s
+    assert _synth("%2", "running", tk, 1002.0, 120, 3) == "running"  # blip cancels
+    assert _synth("%2", "idle", tk, 1003.0, 120, 3) == "running"   # debounce restarts
+    assert _synth("%2", "idle", tk, 1007.0, 120, 3) == "done"     # 4s >= 3s: now done
 
     print(f"detect.py selftest OK ({len(set(id(v) for v in m.values()))} manifests loaded)")
 

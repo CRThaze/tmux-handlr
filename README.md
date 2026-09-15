@@ -161,8 +161,10 @@ strongest first:
 
 The green **done** flash sits outside the ladder: the daemon synthesizes it when a pane
 crosses from working or needs-input to idle, holds it for `@handlr-done-window`, then lets it
-settle to idle. Dismiss it early by binding `@handlr-dismiss-key`, or run
-`scripts/agent-dismiss.sh [%pane]` / `--all`.
+settle to idle. To avoid a premature flash while an agent is still printing its after-action
+report or pausing between steps, idle must persist for `@handlr-done-delay` seconds before done
+fires; a return to working inside that window cancels it. Dismiss a flash early by binding
+`@handlr-dismiss-key`, or run `scripts/agent-dismiss.sh [%pane]` / `--all`.
 
 Because the dots, the `prefix + a` menu, and the `prefix + A` dashboard all read the single
 state cache the daemon writes, they can never show different states for the same pane.
@@ -187,6 +189,7 @@ state cache the daemon writes, they can never show different states for the same
 | `@handlr-extra-processes` | *(unset)* | **Appends** to the default list: add agents without restating it (e.g. the excluded `pi,amp,hermes`, at your own risk). |
 | `@handlr-running-window` | `20` | Fallback: seconds of write-activity that counts as running. |
 | `@handlr-done-window` | `120` | Seconds the green "done" state persists before idle. |
+| `@handlr-done-delay` | `3` | Seconds a pane must stay idle before "done" fires (debounces the flash while a report is still printing or between steps). `0` disables. |
 | `@handlr-notify-command` | *(unset)* | Command run on notify-state edges (env: `AGENT_NAME/STATE/SESSION/WINDOW`). |
 | `@handlr-notify-states` | `done,needs-input` | Which states fire `@handlr-notify-command`. |
 | `@handlr-marker` | `on` | Honor the claude permission-marker accelerator (see [Hooks](#optional-claude-hooks)). |
