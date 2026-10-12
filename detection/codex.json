@@ -50,13 +50,50 @@
   {
    "all": [
     {
-     "regex": [
-      "\\A> You are in [^\\r\\n]+(?:\\r?\\n|$)"
+     "any": [
+      {
+       "regex": [
+        "\\A> You are in [^\\r\\n]+(?:\\r?\\n|$)"
+       ]
+      },
+      {
+       "contains": [
+        "Folder access"
+       ]
+      }
      ]
     },
     {
-     "regex": [
-      "(?s)Do\\s+you\\s+trust\\s+the\\s+contents\\s+of\\s+this\\s+directory\\?"
+     "any": [
+      {
+       "regex": [
+        "(?s)Do\\s+you\\s+trust\\s+the\\s+contents\\s+of\\s+this\\s+directory\\?"
+       ]
+      },
+      {
+       "all": [
+        {
+         "contains": [
+          "Trust this folder?",
+          "Codex can read, edit, and run files here"
+         ]
+        },
+        {
+         "any": [
+          {
+           "contains": [
+            "Trust and continue"
+           ]
+          },
+          {
+           "contains": [
+            "enter continue"
+           ]
+          }
+         ]
+        }
+       ]
+      }
      ]
     }
    ],
@@ -67,16 +104,40 @@
    "visible_blocker": true
   },
   {
-   "contains": [
-    "Update available!",
-    "Update now"
+   "any": [
+    {
+     "all": [
+      {
+       "contains": [
+        "Update available!",
+        "Update now"
+       ]
+      },
+      {
+       "regex": [
+        "Skip\\s+until\\s+next\\s+version",
+        "Press enter to continue\\s*\\z"
+       ]
+      }
+     ]
+    },
+    {
+     "all": [
+      {
+       "regex": [
+        "(?m)^\\s*Update\\s+available\\s+·"
+       ]
+      },
+      {
+       "regex": [
+        "enter\\s+continue\\s+·\\s+esc\\s+skip\\s*\\z"
+       ]
+      }
+     ]
+    }
    ],
    "id": "startup_update",
    "priority": 950,
-   "regex": [
-    "Skip\\s+until\\s+next\\s+version",
-    "Press enter to continue\\s*\\z"
-   ],
    "region": "bottom_non_empty_lines(20)",
    "state": "blocked",
    "visible_blocker": true
@@ -101,6 +162,13 @@
     {
      "contains": [
       "allow command?"
+     ]
+    },
+    {
+     "contains": [
+      "All Results",
+      "Filesystem Only",
+      "Plugins"
      ]
     }
    ],
@@ -170,13 +238,29 @@
    "state": "blocked"
   },
   {
-   "contains": [
-    "esc to interrupt"
+   "any": [
+    {
+     "contains": [
+      " to interrupt)"
+     ]
+    },
+    {
+     "contains": [
+      "s)"
+     ]
+    }
    ],
    "id": "screen_working_fallback",
+   "not": [
+    {
+     "line_regex": [
+      "^(?:[•◦][ \\t]+)?Reconnect failed — check the endpoint, then relaunch \\([0-9hms ]+\\)$"
+     ]
+    }
+   ],
    "priority": 500,
    "regex": [
-    "(?m)^(?:[•◦][ \\t]+)?[^\\s›•◦■✗✓─][^\\r\\n]* \\((?:[0-9]+[hm] )*[0-9]+s • esc to interrupt\\)(?: · [^\\r\\n]*)?(?:\\r?\\n(?:[^•◦›■✗✓─\\r\\n][^\\r\\n]*|•[ \\t]+(?:Queued\\s+follow-up\\s+inputs|Messages\\s+to\\s+be\\s+submitted\\s+after\\s+next\\s+tool\\s+call(?:\\s+\\(press\\s+esc\\s+to\\s+interrupt\\s+and\\s+send\\s+immediately\\))?|Messages\\s+to\\s+be\\s+submitted\\s+at\\s+end\\s+of\\s+turn)|›[⠁⠂⠄⠈⠐⠠⡀⢀][^\\r\\n]*)?)*\\s*\\z"
+    "(?m)^(?:[•◦][ \\t]+)?[^\\s›•◦■✗✓─][^\\r\\n]* \\((?:[0-9]+[hm] )*[0-9]+s(?: • [^\\r\\n]+? to interrupt)?\\)(?: · [^\\r\\n]*)?(?:\\r?\\n(?:[^•◦›■✗✓─\\r\\n][^\\r\\n]*|•[ \\t]+(?:Queued\\s+follow-up\\s+inputs|Messages\\s+to\\s+be\\s+submitted\\s+after\\s+next\\s+tool\\s+call(?:\\s+\\(press\\s+[^\\r\\n]+?\\s+to\\s+interrupt\\s+and\\s+send\\s+immediately\\))?|Messages\\s+to\\s+be\\s+submitted\\s+at\\s+end\\s+of\\s+turn)|›[⠁⠂⠄⠈⠐⠠⡀⢀][^\\r\\n]*)?)*\\s*\\z"
    ],
    "region": "before_current_prompt_marker",
    "state": "working",
@@ -205,6 +289,6 @@
    "visible_idle": true
   }
  ],
- "updated_at": "2026-09-14T00:00:00Z",
- "version": "2026.09.14.1"
+ "updated_at": "2026-10-11T00:00:00Z",
+ "version": "2026.10.11.1"
 }
