@@ -7,6 +7,40 @@
  "min_engine_version": 1,
  "rules": [
   {
+   "contains": [
+    "navigate",
+    "tab amend"
+   ],
+   "id": "permission_prompt",
+   "priority": 300,
+   "region": "bottom_non_empty_lines(2)",
+   "state": "blocked",
+   "visible_blocker": true
+  },
+  {
+   "contains": [
+    "navigate",
+    "esc skip"
+   ],
+   "id": "question_prompt",
+   "priority": 290,
+   "region": "bottom_non_empty_lines(2)",
+   "state": "blocked",
+   "visible_blocker": true
+  },
+  {
+   "contains": [
+    "do you trust the contents of this project?",
+    "yes, i trust this folder",
+    "enter confirm"
+   ],
+   "id": "trust_prompt",
+   "priority": 280,
+   "region": "bottom_non_empty_lines(8)",
+   "state": "blocked",
+   "visible_blocker": true
+  },
+  {
    "any": [
     {
      "contains": [
@@ -23,33 +57,33 @@
    "contains": [
     "requesting permission for:"
    ],
-   "id": "permission_prompt",
-   "priority": 300,
+   "id": "legacy_permission_prompt",
+   "priority": 270,
    "region": "whole_recent",
    "state": "blocked",
    "visible_blocker": true
   },
   {
-   "id": "spinner_working",
-   "line_regex": [
-    "^\\s*[\\u2800-\\u28FF]+\\s+\\p{Alphabetic}+\\w*ing\\b"
+   "id": "esc_cancel_footer_working",
+   "priority": 110,
+   "regex": [
+    "(?m)^\\s*─{3,}\\s*esc to cancel\\b"
    ],
-   "priority": 100,
-   "region": "whole_recent",
+   "region": "bottom_non_empty_lines(2)",
    "state": "working",
    "visible_working": true
   },
   {
-   "id": "background_tasks_working",
+   "id": "spinner_working",
    "line_regex": [
-    "(?i)·\\s*[1-9][0-9]*\\s+task"
+    "^\\s*[\\u2801-\\u28FF]+\\s+\\S"
    ],
-   "priority": 90,
-   "region": "bottom_non_empty_lines(5)",
+   "priority": 100,
+   "region": "bottom_non_empty_lines(12)",
    "state": "working",
    "visible_working": true
   }
  ],
- "updated_at": "2026-06-24T00:00:00Z",
- "version": "2026.06.24.1"
+ "updated_at": "2026-10-05T00:00:00Z",
+ "version": "2026.10.05.1"
 }
