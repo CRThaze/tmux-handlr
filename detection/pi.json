@@ -6,8 +6,17 @@
  "min_engine_version": 1,
  "rules": [
   {
-   "contains": [
-    "Working..."
+   "any": [
+    {
+     "contains": [
+      "Working..."
+     ]
+    },
+    {
+     "line_regex": [
+      "^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Working$"
+     ]
+    }
    ],
    "id": "working_literal",
    "priority": 100,
@@ -16,16 +25,25 @@
    "visible_working": true
   },
   {
-   "id": "working_border",
-   "line_regex": [
-    "^── [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Working ─+$"
+   "any": [
+    {
+     "line_regex": [
+      "^── [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Working ─+$"
+     ]
+    },
+    {
+     "line_regex": [
+      "^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Working$"
+     ]
+    }
    ],
+   "id": "working_border",
    "priority": 100,
    "region": "bottom_non_empty_lines(12)",
    "state": "working",
    "visible_working": true
   }
  ],
- "updated_at": "2026-09-14T00:00:00Z",
- "version": "2026.09.14.1"
+ "updated_at": "2026-10-01T00:00:00Z",
+ "version": "2026.10.01.1"
 }

@@ -187,6 +187,16 @@
    "visible_blocker": true
   },
   {
+   "id": "live_blocked_form_named_session",
+   "priority": 980,
+   "regex": [
+    "(?i)(?:^|\\n)[ \\t]*enter\\s+to\\s+(?:confirm|select\\s+·\\s+(?:(?:tab/arrow|arrow)\\s+keys|arrows|↑/↓|↑↓)\\s+to\\s+navigate)\\s+·\\s+esc\\s+to\\s+cancel[ \\t]*\\n(?:[ \\t]*\\n)*[ \\t]*─{3,}[^\\n]*(?:\\n(?:[ \\t]*\\n)*[ \\t]+\\d+ tasks? \\(\\d+ done, (?:\\d+ in progress, )?\\d+ open\\)(?:\\n[ \\t]+[◻◼✔][ \\t]+[^\\n]+)+(?:\\n[ \\t]+…[ \\t]+\\+\\d+[ \\t]+pending)?)?(?:\\n[ \\t]*)*\\z"
+   ],
+   "region": "whole_recent",
+   "state": "blocked",
+   "visible_blocker": true
+  },
+  {
    "contains": [
     "run a dynamic workflow?",
     "esc to cancel"
@@ -497,6 +507,6 @@
    "state": "idle"
   }
  ],
- "updated_at": "2026-09-11T00:00:00Z",
- "version": "2026.09.11.1"
+ "updated_at": "2026-10-11T00:00:00Z",
+ "version": "2026.10.11.1"
 }
