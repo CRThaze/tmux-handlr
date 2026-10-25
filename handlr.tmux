@@ -59,9 +59,28 @@ start_daemon() {
 	# (_handlr_ensure_daemon: pgrep-guarded so it can't double-spawn). Reuse it here
 	# so init and the status-line supervisor share the exact same spawn guard,
 	# instead of a second pidfile-only check that dups when the pidfile desyncs.
-	# shellcheck source=scripts/agent-status-lib.sh
-	. "$CURRENT_DIR/scripts/agent-status-lib.sh" 2>/dev/null || return 0
 	_handlr_ensure_daemon
+}
+
+# Republished on every load so glyph/color option changes apply on reload.
+# @handlr-window-status 'on' appends it to the stock tab formats; a theme that
+# builds its own tabs references #{T:@handlr-tab-format} itself instead.
+setup_tab_format() {
+	local opt
+	local cur
+	tmux set -g @handlr-tab-format "$(_handlr_tab_format)"
+	[ "$(get_tmux_option '@handlr-window-status' 'off')" = 'on' ] || return 0
+	for opt in window-status-format window-status-current-format
+	do
+		cur="$(tmux show-option -gqv "$opt")"
+		case "$cur" in
+			*@handlr-tab-format*)
+				;;
+			*)
+				tmux set -g "$opt" "${cur}#{T:@handlr-tab-format}"
+				;;
+		esac
+	done
 }
 
 # Non-powerline users get the indicator appended to status-right as a #() job.
@@ -83,6 +102,8 @@ setup_status_right() {
 }
 
 main() {
+	# shellcheck source=scripts/agent-status-lib.sh
+	. "$CURRENT_DIR/scripts/agent-status-lib.sh" 2>/dev/null || return 0
 	# Export the handlr directory so the support scripts can find it.
 	tmux set-environment -g TMUX_HANDLR_DIR "$CURRENT_DIR"
 	if [ "$(get_tmux_option '@handlr-setup-binds' 'on')" = 'on' ]
@@ -94,6 +115,7 @@ main() {
 		"$CURRENT_DIR/scripts/install-segment.sh" >/dev/null 2>&1
 	fi
 	setup_status_right
+	setup_tab_format
 	if [ "$(get_tmux_option '@handlr-daemon' 'on')" = 'on' ]
 	then
 		start_daemon

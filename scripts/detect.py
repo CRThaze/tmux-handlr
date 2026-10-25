@@ -504,6 +504,42 @@ def _write_cache(path: str, states: dict[str, str]) -> None:
         pass
 
 
+def _pane_states() -> dict[str, str]:
+    """Every live pane -> its published @handlr-state ("" when unset)."""
+    out = _tmux("list-panes", "-a", "-F", "#{pane_id}\t#{@handlr-state}") or ""
+    return {p: s for p, _, s in (line.partition("\t") for line in out.splitlines())}
+
+
+def _publish_args(
+    states: dict[str, str],
+    published: dict[str, str],
+    alive: set[str],
+) -> list[str]:
+    """tmux argv that mirrors each pane's state into its @handlr-state pane option,
+    which the tab icons (@handlr-tab-format) read without forking. Only changes are
+    sent, since every set-option redraws all clients. A pane that dropped out of
+    states is unset only while still alive: one missing target aborts the list."""
+    args: list[str] = []
+    for pane, st in states.items():
+        if published.get(pane) != st:
+            args += ["set", "-p", "-t", pane, "@handlr-state", st, ";"]
+    for pane in published.keys() - states.keys():
+        if pane in alive:
+            args += ["set", "-pu", "-t", pane, "@handlr-state", ";"]
+    return args[:-1]
+
+
+def _publish(states: dict[str, str], published: dict[str, str]) -> None:
+    alive = set(_pane_states()) if published.keys() - states.keys() else set()
+    args = _publish_args(states, published, alive)
+    published.clear()
+    if args and _tmux(*args) is None:
+        # Partly applied (a pane closed mid-tick): resync from what tmux holds.
+        published.update((p, s) for p, s in _pane_states().items() if s)
+    else:
+        published.update(states)
+
+
 def _fire_notify(
     cmd: str,
     agent: str,
@@ -548,6 +584,9 @@ def daemon_loop() -> None:
     manifests = load_manifests()
     track = {}            # pane -> {state, done_until}
     last_state = {}       # pane -> last state we notified on
+    # pane -> @handlr-state in tmux; seeded with a previous daemon's leftovers so
+    # the first publish corrects or clears them.
+    published = {p: s for p, s in _pane_states().items() if s}
     cfg_at = 0.0
     done_window = done_delay = notify_cmd = notify_states = marker_on = None
     interval, idle_backoff = 1.5, 5.0
@@ -596,6 +635,7 @@ def daemon_loop() -> None:
                     track.pop(p, None); last_state.pop(p, None)
 
             _write_cache(cachefile, out)
+            _publish(out, published)
 
             if notify_cmd:
                 for pane, st in out.items():
@@ -706,6 +746,14 @@ def demo() -> None:
     assert _synth("%2", "running", tk, 1002.0, 120, 3) == "running"  # blip cancels
     assert _synth("%2", "idle", tk, 1003.0, 120, 3) == "running"   # debounce restarts
     assert _synth("%2", "idle", tk, 1007.0, 120, 3) == "done"     # 4s >= 3s: now done
+
+    # tab-icon publishing: only changed panes are set; a pane that dropped out is
+    # unset only while alive (%4 closed, so targeting it would abort the batch).
+    got = _publish_args({"%1": "running", "%2": "idle"},
+                        {"%1": "running", "%3": "done", "%4": "idle"}, {"%1", "%2", "%3"})
+    assert got == ["set", "-p", "-t", "%2", "@handlr-state", "idle", ";",
+                   "set", "-pu", "-t", "%3", "@handlr-state"], got
+    assert _publish_args({"%1": "idle"}, {"%1": "idle"}, set()) == []
 
     print(f"detect.py selftest OK ({len(set(id(v) for v in m.values()))} manifests loaded)")
 

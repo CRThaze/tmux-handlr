@@ -85,6 +85,82 @@ _handlr_color() {
 	printf '%s' "${v:-$def}"
 }
 
+# _handlr_glyphs: resolve the per-state glyphs for @handlr-indicator into the
+# CALLER's locals (declare them first): run_frames (running animation, one frame
+# per second; a single frame is static), g_needs, g_done, g_idle. Shared by the
+# dots segment and the tab icons so both draw the same glyphs.
+#   dots     (default): ● for every state (color tells them apart); running cycles
+#              @handlr-glyph-running unless @handlr-dots-animate is off.
+#   symbolic : a distinct glyph per state, @handlr-glyph-{needs-input,done,idle}.
+_handlr_glyphs() {
+	local style
+	local g_run
+	style=$(tmux show-option -gqv @handlr-indicator 2>/dev/null || :)
+	g_run=$(tmux show-option -gqv @handlr-glyph-running 2>/dev/null || :)
+	if [ "$style" = symbolic ]
+	then
+		g_run="${g_run:-▘ ▝ ▗ ▖}"
+		g_needs=$(tmux show-option -gqv @handlr-glyph-needs-input 2>/dev/null || :)
+		g_needs="${g_needs:-$'\ueb76'}"   # nf-cod-unverified
+		g_done=$(tmux show-option -gqv @handlr-glyph-done 2>/dev/null || :)
+		g_done="${g_done:-$'\uebe9'}"    # nf-cod-verified_filled
+		g_idle=$(tmux show-option -gqv @handlr-glyph-idle 2>/dev/null || :)
+		g_idle="${g_idle:-○}"
+	else
+		g_needs='●'
+		g_done='●'
+		g_idle='●'
+		if [ "$(tmux show-option -gqv @handlr-dots-animate 2>/dev/null || :)" = off ]
+		then
+			g_run='●'
+		else
+			g_run="${g_run:-◔ ◑ ◕ ●}"
+		fi
+	fi
+	IFS=' ' read -ra run_frames <<< "$g_run"
+	if [ ${#run_frames[@]} -eq 0 ]
+	then
+		run_frames=('●')
+	fi
+}
+
+# _handlr_fmt_esc STR: STR as literal text inside a tmux format (#, comma and }
+# are format syntax). A % can't be escaped: #{T:...} reapplies strftime at every
+# nesting level, so tab glyphs must not contain one.
+_handlr_fmt_esc() {
+	printf '%s' "$1" | sed 's/[#,}]/#&/g'
+}
+
+# _handlr_tab_format: a tmux format that draws the agent icons for the window it
+# is expanded in, one per agent pane, from the @handlr-state pane option the
+# detect.py daemon publishes. Pure format, so tabs render it without forking a
+# script. handlr.tmux publishes it as @handlr-tab-format; reference it as
+# #{T:@handlr-tab-format}: T (not E) applies strftime, whose %s epoch second picks
+# the running frame. Each icon is its own range=user|<pane> for click-to-jump.
+_handlr_tab_format() {
+	local -a run_frames
+	local g_needs
+	local g_done
+	local g_idle
+	local st='#{@handlr-state}'
+	local n
+	local i
+	local run
+	local pick
+	_handlr_glyphs
+	n=${#run_frames[@]}
+	run=$(_handlr_fmt_esc "${run_frames[n - 1]}")
+	for (( i = n - 2; i >= 0; i-- ))
+	do
+		run="#{?#{==:#{e|%%:%s,$n},$i},$(_handlr_fmt_esc "${run_frames[i]}"),$run}"
+	done
+	pick="#{?#{==:$st,running},#[fg=$(_handlr_color running)]$run,"
+	pick+="#{?#{==:$st,needs-input},#[fg=$(_handlr_color needs-input)]$(_handlr_fmt_esc "$g_needs"),"
+	pick+="#{?#{==:$st,done},#[fg=$(_handlr_color 'done')]$(_handlr_fmt_esc "$g_done"),"
+	pick+="#[fg=$(_handlr_color idle)]$(_handlr_fmt_esc "$g_idle")}}}"
+	printf '%s' "#{P:#{?$st,#[range=user|#{pane_id}]$pick #[norange],}}"
+}
+
 # True unless @handlr-all-sessions is off: the UI lists agents from every tmux
 # session (the daemon always tracks them all), not only the client's own.
 _handlr_all_sessions() {
@@ -576,16 +652,10 @@ enum_agents() {
 # type (each type's configurable glyph label), then a clickable per-pane state
 # indicator wrapped in #[range=user|<pane>] so a MouseDown1Status binding can jump.
 # The single renderer for the dots segment: both the plugin's copy and a user's
-# powerline user-segment call this, so there's one place to change.
-#
-# Style via @handlr-indicator:
-#   dots      (default): one ● per pane, colored by state; the RUNNING dot cycles
-#               the running-animation frames (@handlr-dots-animate, on by default).
-#   symbolic  : a glyph per state: running = animated frames, needs-input = ?,
-#               done = ✓, idle = ○.
-# Overridable: @handlr-glyph-running (space-separated running-animation frames,
-#   used by both modes), -done, -needs-input, -idle; @handlr-dots-animate (on|off).
-# Colors stay constant per state in both modes (red/yellow/green/cyan).
+# powerline user-segment call this, so there's one place to change. Glyphs come
+# from _handlr_glyphs (@handlr-indicator); colors stay constant per state.
+# @handlr-dots-scope 'others' drops the client's own session, for setups whose
+# tabs already show it (@handlr-tab-format).
 render_pane_indicators() {
 	local current="${1:-}"
 	if [ -z "$current" ]
@@ -594,69 +664,20 @@ render_pane_indicators() {
 	fi
 	[ -n "$current" ] || return 0
 
-	local style; style=$(tmux show-option -gqv @handlr-indicator 2>/dev/null || :)
-	if [ -z "$style" ]
-	then
-		style=dots
-	fi
-	local dots_anim; dots_anim=$(tmux show-option -gqv @handlr-dots-animate 2>/dev/null || :)
-	if [ -z "$dots_anim" ]
-	then
-		dots_anim=on
-	fi
-
-	# Animate the running indicator in symbolic mode; in dots mode, unless
-	# @handlr-dots-animate is off.
+	local scope
+	scope=$(tmux show-option -gqv @handlr-dots-scope 2>/dev/null || :)
 	local -a run_frames
 	local g_done
 	local g_needs
 	local g_idle
 	local now
-	local animate_running=0
-	if [ "$style" = symbolic ] || { [ "$style" = dots ] && [ "$dots_anim" != off ]; }
-	then
-		local g_run; g_run=$(tmux show-option -gqv @handlr-glyph-running 2>/dev/null || :)
-		# Mode-dependent default: a single @handlr-glyph-running override applies
-		# to whichever mode is active. dots = pie-fill; symbolic = quadrant-block orbit.
-		if [ -z "$g_run" ]
-		then
-			if [ "$style" = symbolic ]
-			then
-				g_run='▘ ▝ ▗ ▖'
-			else
-				g_run='◔ ◑ ◕ ●'
-			fi
-		fi
-		IFS=' ' read -ra run_frames <<< "$g_run"
-		# One frame per status redraw. tmux caches #() segment output and only
-		# re-runs it every `status-interval` (integer seconds), ~1 frame/sec. A
-		# finer counter would alias to the same frame each redraw (looks frozen).
-		# Short, high-contrast sets (pie-fill, block-orbit) read as motion at 1/sec;
-		# long braille sets don't.
-		printf -v now '%(%s)T' -1
-		if [ ${#run_frames[@]} -gt 0 ]
-		then
-			animate_running=1
-		fi
-	fi
-	if [ "$style" = symbolic ]
-	then
-		g_done=$(tmux show-option -gqv @handlr-glyph-done 2>/dev/null || :)
-		if [ -z "$g_done" ]
-		then
-			g_done=''
-		fi
-		g_needs=$(tmux show-option -gqv @handlr-glyph-needs-input 2>/dev/null || :)
-		if [ -z "$g_needs" ]
-		then
-			g_needs=''
-		fi
-		g_idle=$(tmux show-option -gqv @handlr-glyph-idle 2>/dev/null || :)
-		if [ -z "$g_idle" ]
-		then
-			g_idle='○'
-		fi
-	fi
+	_handlr_glyphs
+	# One frame per status redraw. tmux caches #() segment output and only
+	# re-runs it every `status-interval` (integer seconds), ~1 frame/sec. A
+	# finer counter would alias to the same frame each redraw (looks frozen).
+	# Short, high-contrast sets (pie-fill, block-orbit) read as motion at 1/sec;
+	# long braille sets don't.
+	printf -v now '%(%s)T' -1
 
 	local -a rows=()
 	local pane
@@ -672,6 +693,10 @@ render_pane_indicators() {
 	while IFS=$'\t' read -r pane type state tty widx wname pid cwd title sname
 	do
 		[ -n "$pane" ] || continue
+		if [ "$scope" = others ] && [ "$sname" = "$current" ]
+		then
+			continue
+		fi
 		rows+=("$type|$pane|$state")
 	done < <(enum_agents "$current")
 	[ ${#rows[@]} -gt 0 ] || return 0
@@ -725,28 +750,20 @@ render_pane_indicators() {
 			[ "${r%%|*}" = "$t" ] || continue
 			pane="${r#*|}"; pane="${pane%%|*}"; state="${r##*|}"
 			color=$(_handlr_color "$state")   # @handlr-color-<state>, with named defaults
-			if [ "$style" = symbolic ]
-			then
-				case "$state" in
-					running)
-						glyph="${run_frames[$(( now % ${#run_frames[@]} ))]}"
-						;;
-					needs-input)
-						glyph="$g_needs"
-						;;
-					done)
-						glyph="$g_done"
-						;;
-					*)
-						glyph="$g_idle"
-						;;
-				esac
-			elif [ "$state" = running ] && [ "$animate_running" = 1 ]
-			then
-				glyph="${run_frames[$(( now % ${#run_frames[@]} ))]}"   # the animated running dot
-			else
-				glyph='●'
-			fi
+			case "$state" in
+				running)
+					glyph="${run_frames[$(( now % ${#run_frames[@]} ))]}"
+					;;
+				needs-input)
+					glyph="$g_needs"
+					;;
+				done)
+					glyph="$g_done"
+					;;
+				*)
+					glyph="$g_idle"
+					;;
+			esac
 			out+="#[range=user|${pane}]#[fg=${color}] ${glyph} #[norange]"
 		done
 	done

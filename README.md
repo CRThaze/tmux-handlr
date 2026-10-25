@@ -64,7 +64,8 @@ status line, so they need one wiring step:
   `status-right` for you.
 
 Either route, the dots become click-to-jump once you add a short mouse binding. Full
-instructions are in [Status-line dots](#status-line-dots).
+instructions are in [Status-line dots](#status-line-dots). Prefer the indicators inside
+your window tabs? See [Tab icons](#tab-icons).
 
 **4. (Optional) Get notified when an agent finishes or needs you.** Point
 `@handlr-notify-command` at a script; a ready-made [ntfy](https://ntfy.sh) pusher ships in
@@ -184,6 +185,8 @@ state cache the daemon writes, they can never show different states for the same
 | `@handlr-dashboard-icons` | `on` | Show each agent's type glyph (as in the `prefix+a` menu) in the `prefix+A` dashboard and the sidebar. `off` = text only. |
 | `@handlr-dismiss-key` | *(unset)* | `prefix +` this dismisses the **current pane's** done flash back to idle now. Opt-in: unset binds nothing. (`scripts/agent-dismiss.sh --all` clears every done pane at once.) |
 | `@handlr-all-sessions` | `on` | List agents from **every** tmux session in the dots, menu, dashboard, and sidebar (menu/dashboard rows get a `session:` prefix, and picking one switches the client there). `off` scopes them to the client's current session. |
+| `@handlr-dots-scope` | `all` | `others` = the dots segment lists only agents in sessions other than the client's own (pair with [tab icons](#tab-icons), which cover the current session). |
+| `@handlr-window-status` | `off` | `on` = append the agent [tab icons](#tab-icons) to `window-status-format` and `window-status-current-format`. |
 | `@handlr-daemon` | `on` | Run the detection daemon. `off` means timestamp-fallback only. |
 | `@handlr-restart-key` | *(unset)* | `prefix +` this restarts the detection daemon (kills the running one, respawns it). Opt-in: unset binds nothing, so pick a free key (e.g. `R`). |
 | `@handlr-processes` | *(the supported-agents set)* | Process names treated as agents (replaces the default list; see [Supported agents](#supported-agents)). |
@@ -270,21 +273,52 @@ powerline: it rewrites `status-right` on every load and would drop it.)
 
 ### Mouse Support
 
-Whichever route you used (powerline segment or plain `status-right`), each indicator
-carries a `range=user|<pane_id>` marker. To make the dots click-to-jump, add a
-`MouseDown1Status` binding that matches the marker and selects that pane:
+Whichever route you used (powerline segment, plain `status-right`, or
+[tab icons](#tab-icons)), each indicator carries a `range=user|<pane_id>` marker. To make
+the dots click-to-jump, add a `MouseDown1Status` binding that matches the marker and
+switches to that pane:
 
 ```tmux
 bind -n MouseDown1Status {
 	if -F '#{m/r:^%[0-9]+$,#{mouse_status_range}}' {
-		run-shell "tmux select-window -t '#{mouse_status_range}'; tmux select-pane -t '#{mouse_status_range}'"
+		run-shell "tmux switch-client -c '#{client_name}' -t '#{mouse_status_range}'"
 	} {}
 }
 ```
 
+`switch-client` with a pane target selects that pane's session, window, and pane in one
+step, so a dot for an agent in another session takes you there too.
+
 `MouseDown1Status` is one global binding, so if you already dispatch other clickable
 status elements (tabs, the session name), fold the `^%[0-9]+$` check into that existing
 `if`-chain instead of replacing it.
+
+## Tab icons
+
+The daemon also publishes each agent pane's state as a pane option, `@handlr-state`, and
+`handlr.tmux` builds a format from it, `@handlr-tab-format`, that draws the window's agent
+icons with the same glyphs and colors as the dots. It is plain tmux format, so tabs render
+it without running a script.
+
+- **Stock tab formats:** set `@handlr-window-status 'on'` and handlr appends the icons to
+  `window-status-format` and `window-status-current-format`. Under powerline this works
+  too, as long as handlr's `@plugin` line comes after powerline's.
+- **Your own tab layout** (e.g. a powerline theme's `TMUX_POWERLINE_WINDOW_STATUS_FORMAT`
+  and `TMUX_POWERLINE_WINDOW_STATUS_CURRENT` arrays): put `#{T:@handlr-tab-format}` where
+  the icons should go. Keep the `T:`: strftime supplies the second that animates the
+  running glyph, and `E:` renders nothing inside powerline's output. Each icon opens its
+  own range and tmux ranges don't nest, so if it sits inside your tab's range, reopen that
+  range right after it. Inside an inverted "current tab" pill, check that the state colors
+  (`@handlr-color-*`) still read against the pill's background.
+
+Tabs only cover the client's current session. To still see agents in other sessions, keep
+the dots segment and set `@handlr-dots-scope 'others'` so it lists only those. The tab
+icons rely on the daemon (no icon for timestamp-fallback panes such as aider); the dots
+segment is also what respawns a dead daemon, so a tabs-only setup recovers only when the
+menu or dashboard next opens.
+
+Changing a glyph or color option takes effect on the next config reload, which rebuilds
+`@handlr-tab-format`.
 
 ## Notifications
 
@@ -378,7 +412,7 @@ via `scripts/agent-state.sh`.
 
 The detection engine is Python 3.6+ standard library only, no pip installs. A small
 background daemon polls panes every ~1.5s; disable it with `@handlr-daemon off` to fall
-back to the mtime heuristic. It self-heals (any status redraw respawns a dead one), but you
+back to the mtime heuristic. It self-heals (any dots-segment redraw respawns a dead one), but you
 can force a restart by binding `@handlr-restart-key` or running
 `scripts/agent-daemon-restart.sh`.
 
