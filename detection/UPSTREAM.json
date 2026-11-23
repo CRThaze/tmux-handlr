@@ -24,9 +24,9 @@
   "qodercli",
   "qwen"
  ],
- "ref": "143bf5fd4781d164260c63fe28e7dc08054ad32f",
+ "ref": "e8d7d9705a7a2c89cef4dd42079379f05685af87",
  "schema_version": 1,
  "source": "herdrdev/herdr",
- "synced_at": "2026-10-19T11:41:13Z",
- "url": "https://raw.githubusercontent.com/herdrdev/herdr/143bf5fd4781d164260c63fe28e7dc08054ad32f/distribution/agent-detection/"
+ "synced_at": "2026-11-23T16:57:06Z",
+ "url": "https://raw.githubusercontent.com/herdrdev/herdr/e8d7d9705a7a2c89cef4dd42079379f05685af87/distribution/agent-detection/"
 }
